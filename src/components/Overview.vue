@@ -30,6 +30,11 @@
           </div>
         </div>
         <div class="tile is-parent">
+          <div class="tile is-child">
+            <editor></editor>
+          </div>
+        </div>
+        <div class="tile is-parent">
           <div class="tile is-parent has-background-white-ter">
             <div class="tile is-parent is-4">
               <div class="tile is-parent has-background-white-bis">
@@ -130,6 +135,7 @@
 
 <script>
 
+import Editor from '@/components/Editor.vue';
 import OPAreaChart from '@/components/OPAreaChart.vue';
 
 import { mapGetters } from 'vuex';
@@ -148,6 +154,7 @@ const page = {
   },
   components: {
     'op-area-chart': OPAreaChart,
+    'editor': Editor,
   },
   computed: {
     indices: function () {
