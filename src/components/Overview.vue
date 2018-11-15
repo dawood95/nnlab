@@ -1,129 +1,35 @@
 <template>
-  <div class="container">
-    <div class="tile is-ancestor">
-      <div class="tile is-vertical">
-        <div class="tile is-parent">
-          <div class="tile is-parent has-background-white-ter">
-            <div class="tile is-child columns">
-              <div class="column is-narrow is-size-4">
-                ONNX Model
-              </div>
-              <div class="column">
-                <div class="control"  v-bind:class="{'is-loading': loading}">
-                  <input class="input has-text-centered" type="text" :value="fileName" readonly>
-                </div>
-              </div>
-              <div class="column is-narrow file">
-              <label class="file-label">
-                <input class="file-input" type="file" ref="onnx_path" @change="setOnnx">
-                <span class="file-cta">
-                  <span class="file-icon">
-                    <i class="fas fa-upload"></i>
-                  </span>
-                  <span class="file-label">
-                    Choose a model
-                  </span>
-                </span>
-              </label>
-            </div>
-            </div>
-          </div>
-        </div>
-        <div class="tile is-parent">
-          <div class="tile is-parent has-background-white-ter">
-            <div class="tile is-parent is-4">
-              <div class="tile is-parent has-background-white-bis">
-                <div class="tile is-child">
-                  <div class="level-item is-size-5">
-                    Meta Info
-                  </div>
-                  <div class="section h120 is-clipped scrollable">
-                    <div v-for="item in metaInfo" :key="item.name" class="columns is-mobile">
-                      <div class="column has-text-left"><p>{{ item.name }}</p></div>
-                      <div class="column has-text-right"><p>{{ item.value }}</p></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="tile is-parent is-4">
-              <div class="tile is-parent has-background-white-bis">
-              <!-- <div class="tile is-parent has-background-white-bis"> -->
-                <div class="tile is-child">
-                    <div class="level-item is-size-5">
-                      Inputs
-                    </div>
-                    <br>
-                    <div class="section">
-                      <div class="field control">
-                        <div class="select has-text-centered is-fullwidth">
-                          <select v-model="selectedInput">
-                            <option v-for="item in inputs" :key="item.name" :value="item.shape">{{ item.name }}</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div class="field has-addons">
-                        <div class="control is-expanded">
-                          <input class="input has-text-centered is-fullwidth" type="text" :placeholder="selectedInput" disabled>
-                        </div>
-                        <div class="control">
-                          <a class="button" disabled>
-                            <span class="fas fa-chevron-right"/>
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                </div>
-              </div>
-            </div>
-            <div class="tile is-parent is-4">
-              <div class="tile is-parent has-background-white-bis">
-              <!-- <div class="tile is-parent has-background-white-bis"> -->
-                <div class="tile is-child">
-                    <div class="level-item is-size-5">
-                      Outputs
-                    </div>
-                    <br>
-                    <div class="section h120 is-clipped scrollable">
-                      <div v-for="item in outputs" :key="item.name" class="columns is-mobile">
-                        <div class="column has-text-left"><p>{{ item.name }}</p></div>
-                        <div class="column has-text-right"><p>{{ item.shape }}</p></div>
-                      </div>
-                    </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="tile is-parent">
-          <div class="tile is-parent has-background-white-ter">
-            <div class="tile is-parent">
-              <div class="tile is-parent has-background-white-bis">
-                <div class="tile is-child">
-                  <!-- <vue-frappe
-                  id="opsandparams"
-                  type="line"
-
-                  :height="400"
-                  :colors="['#008F68', '#FAE042']"
-                  :lineOptions="{regionFill: 1}"
-
-                  ></vue-frappe> -->
-                  <op-area-chart
-                  :height=250
-                  :title="'Per Layer Analysis'"
-                  :labels="indices"
-                  :datasets="[
-                    {name: 'Ops', data: totalOps},
-                    {name: 'Params', data: totalParams}
-                  ]"
-                  > </op-area-chart>
-                </div>
-              </div>
-            </div>
+  <div class="container is-fluid">
+    <div class="tile is-ancestor is-block-tablet is-flex-desktop">
+      <div class="tile is-vertical is-3">
+        <div class="tile is-parent has-background-white-ter">
+          <div class="tile is-child">
+            <editor></editor>
           </div>
         </div>
       </div>
+      <div class="tile is-vertical is-auto">
+        <div class="tile is-parent has-background-white-ter">
+          <div class="tile is-child has-background-white-bis">
+            <model-graph/>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tile is-ancestor">
+      <div class="tile is-parent has-background-white-ter is-auto">
+            <div class="tile is-child has-background-white-bis">
+              <op-area-chart
+              :height=200
+              :title="'Per Layer Analysis'"
+              :labels="indices"
+              :datasets="[
+                {name: 'Ops', data: totalOps},
+                {name: 'Params', data: totalParams}
+              ]"
+              > </op-area-chart>
+            </div>
+        </div>
     </div>
   </div>
 </template>
@@ -131,6 +37,8 @@
 <script>
 
 import OPAreaChart from '@/components/OPAreaChart.vue';
+import ModelGraph from '@/components/ModelGraph.vue';
+import Editor from '@/components/Editor.vue';
 
 import { mapGetters } from 'vuex';
 
@@ -142,12 +50,12 @@ const page = {
     return {
       loading: false,
       loaded: false,
-      selectedInput: '',
-      selectedOutput: '',
     };
   },
   components: {
     'op-area-chart': OPAreaChart,
+    'model-graph': ModelGraph,
+    'editor': Editor,
   },
   computed: {
     indices: function () {
@@ -163,7 +71,6 @@ const page = {
       'fileName',
       'totalOps',
       'totalParams',
-      'distOpsParams',
     ]),
   },
   methods: {

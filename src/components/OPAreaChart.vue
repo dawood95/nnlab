@@ -10,14 +10,14 @@ export default {
     components: {
       apexcharts: VueApexCharts,
     },
-    props: ["id", "datasets", "labels", "title", "height"],
+    props: ["datasets", "labels", "title", "height"],
     data: function() {
       return {
         chartOptions: {
           title: {
             text: this.title,
             style: {
-              fontSize:  '24px',
+              fontSize:  '18px',
               color:  '#263238'
             },
           },
@@ -59,7 +59,7 @@ export default {
                   else if (val > 1e6)
                     return (val/1e6)+"M"
                   else if (val > 1e3)
-                      return (val/1e3)+"k"
+                    return (val/1e3)+"k"
                   else
                     return val
                 }
@@ -78,20 +78,26 @@ export default {
                 text: "Params per Layer",
               },
               labels: {
-              formatter: (val) => {                  if (val > 1e9)
-                                  return (val/1e9)+"G"
-                                else if (val > 1e6)
-                                  return (val/1e6)+"M"
-                                else if (val > 1e3)
-                                    return (val/1e3)+"k"
-                                else
-                                  return val  }
+                formatter: (val) => {
+                  if (val > 1e9)
+                    return (val/1e9)+"G"
+                  else if (val > 1e6)
+                    return (val/1e6)+"M"
+                  else if (val > 1e3)
+                    return (val/1e3)+"k"
+                  else
+                    return val
+                }
               },
             }
           ],
         },
-        series: this.datasets,
       }
+    },
+    computed: {
+      series() {
+        return this.datasets;
+      },
     },
 };
 </script>

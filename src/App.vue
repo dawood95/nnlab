@@ -5,17 +5,18 @@
         class="navbar column is-paddingless is-fixed-top has-background-white-ter"
         role="navigation"
         aria-label="main navigation">
-        <div class="navbar-brand level">
-          <router-link :to="{ name: 'root', params: {} }" class="navbar-item level-item level-left is-size-3">
-            NN Lab
+        <div class="navbar-brand">
+          <router-link :to="{ name: 'root', params: {} }" class="navbar-item is-size-4">
+            NNLab
+            <!-- <span class="icon is-small"><i class="fas fa-flask"></i></span> -->
           </router-link>
-          <a class="navbar-item level-item level-right">
-            <i class="fab fa-github is-size-4"/>
+          <a class="navbar-end navbar-item">
+            <i class="fab fa-github is-size-5"/>
           </a>
         </div>
       </nav>
     </div>
-    <br><br>
+    <br>
     <div class="hero-body v-start">
       <router-view></router-view>
     </div>
@@ -25,9 +26,6 @@
 <script>
   export default {
     name: 'onnx-explorer',
-    components: {
-      tabs: () => import('@/components/Tabs'),
-    },
   };
 </script>
 

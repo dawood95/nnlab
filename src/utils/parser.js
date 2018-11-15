@@ -6,6 +6,7 @@ const compute = (opType, inputs, attributes) => {
   switch (opType) {
     case "Conv": {
       let [data, weight, bias] = Object.values(inputs);
+
       let stride = [];
       let ks = [];
       let pad = [];
@@ -39,8 +40,8 @@ const compute = (opType, inputs, attributes) => {
       if (pad.length === 0) pad = Array(stride.length).fill(0);
 
       let [batch, in_channels, ...in_dims] = data;
-      let out_channels = weight[0] * group;
-      let output_size = [];
+      let out_channels = weight[0];
+      var output_size = [];
 
       output_size.push(batch);
       output_size.push(out_channels);
@@ -50,7 +51,7 @@ const compute = (opType, inputs, attributes) => {
         out_dim = Math.floor((out_dim / stride[i]) + 1);
         output_size.push(out_dim);
       }
-      output_sizes.push(output_size);
+      output_sizes.push(new Array(...output_size));
 
       let ops_per_output;
       ops_per_output = 2 * ((in_channels / group) * ks.reduce((a, b) => a*b));
@@ -102,8 +103,8 @@ const compute = (opType, inputs, attributes) => {
         out_dim = Math.floor((out_dim / stride[i]) + 1);
         output_size.push(out_dim);
       }
-      output_sizes.push(output_size);
-      if (!average) output_sizes.push(output_size);
+      output_sizes.push(new Array(...output_size));
+      if (!average) output_sizes.push(new Array(...output_size));
 
       let ops_per_output;
       ops_per_output = ks.reduce((a, b) => a*b) - 1;
@@ -139,16 +140,30 @@ const compute = (opType, inputs, attributes) => {
     }
     case "BatchNormalization": {
       let [data, ...dc] = Object.values(inputs);
-      output_sizes.push(data);
+      output_sizes.push(new Array(...data));
       ops = data.reduce((a, b) => a*b) * 2; // 1 for sub, 1 for div
       for (let x of dc) {
         params += x.reduce((a, b) => a*b);
       }
       break;
     }
+    case "LRN": {
+      // TODO WRONG OPS CALC
+      let [data] = Object.values(inputs);
+      let numel = data.reduce((a, b) => a*b);
+
+      output_sizes.push(new Array(...data));
+
+      ops += numel * 2; // squared sum
+      ops += 3; // denominator
+      ops += numel; // per element div
+
+      params += 4;
+      break;
+    }
     case "Relu": {
       let [data] = Object.values(inputs);
-      output_sizes.push(data);
+      output_sizes.push(new Array(...data));
       ops = data.reduce((a, b) => a*b); // element-wise
       params = 0;
       break;
@@ -159,7 +174,7 @@ const compute = (opType, inputs, attributes) => {
       let dataProd = data.reduce((a, b) => a*b);
       let shapeProd = shape.reduce((a, b) => a*b);
       for (let i in shape) if (shape[i] === -1) shape[i] = (dataProd / (-1 * shapeProd));
-      output_sizes.push(shape);
+      output_sizes.push(new Array(...shape));
       break;
     }
     case "Transpose": {
@@ -170,35 +185,22 @@ const compute = (opType, inputs, attributes) => {
       let output_size = [];
       for (let i in data)
         output_size[i] = data[perm[i]];
-      output_sizes.push(output_size);
+      output_sizes.push(new Array(...output_size));
       break;
     }
     case "Concat": {
       let data = Object.values(inputs);
       let axis = '';
       for (let x of attributes) if (x.name === "axis") axis = Number(x.i);
-      let output_size = data[0];
+      let output_size = new Array(...data[0]);
       for (let x of data.slice(1)) output_size[axis] += x[axis];
-      output_sizes.push(output_size);
-      break;
-    }
-    case "LRN": {
-      let [data] = Object.values(inputs);
-      let numel = data.reduce((a, b) => a*b);
-
-      output_sizes.push(data);
-
-      ops += numel * 2; // squared sum
-      ops += 3; // denominator
-      ops += numel; // per element div
-
-      params += 4;
+      output_sizes.push(new Array(...output_size));
       break;
     }
     case "Dropout": {
       let [data] = Object.values(inputs);
-      output_sizes.push(data);
-      output_sizes.push(data);
+      output_sizes.push(new Array(...data));
+      output_sizes.push(new Array(...data));
       params += 1;
       break;
     }
@@ -210,9 +212,25 @@ const compute = (opType, inputs, attributes) => {
           axis = Number(x.i);
         }
       }
-      output_sizes.push(data);
+      output_sizes.push(new Array(...data));
 
       ops += (data.slice(axis).reduce((a, b) => (a * b)) * 3);
+      break;
+    }
+    case "Sum": {
+      let maxLen = 0;
+      for (let x of Object.values(inputs)) if (x.length > maxLen) maxLen = x.length;
+      let output_size = Array(maxLen);
+      output_size.fill(1);
+      for (let x of Object.values(inputs)) {
+          let idx = output_size.length - x.length;
+          for (let i in x) {
+            output_size[idx] = (output_size[idx] > x[i]) ? output_size[idx] : x[i];
+            idx += 1;
+          }
+      }
+      output_sizes.push(output_size);
+      ops += output_size.reduce((a, b) => a*b) * Object.values(inputs).length;
       break;
     }
     default:
