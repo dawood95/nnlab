@@ -5,6 +5,24 @@
 <script>
 import { mapGetters } from 'vuex';
 import dagre from 'cytoscape-dagre';
+import jquery from 'jquery';
+
+function genUID() {
+  let uid;
+  uid  = Math.random().toString(36).substring(2, 15);
+  uid += Math.random().toString(36).substring(2, 15);
+  return uid;
+}
+
+const mergeable_nodes = [
+  "Relu",
+  "BatchNormalization", "LRN",
+];
+
+const name_map = {
+  "BatchNormalization": "BN",
+  "AveragePool": "AvgPool",
+};
 
 const page = {
   name: 'ModelGraph',
@@ -28,33 +46,31 @@ const page = {
             selector: 'edge',
             style: {
               'label': 'data(name)',
-              'text-margin-y': 20,
               'text-background-color': 'whitesmoke',
               'text-background-opacity': 1,
               'width': 3,
               'curve-style': 'bezier',
               'font-size': 24,
-              'mid-target-arrow-shape': 'triangle',
+              'target-arrow-shape': 'triangle',
+              'arrow-scale': 2,
             }
-          }
+          }, {
+            selector: '$node > node',
+            css: {
+              'padding-top': '10px',
+              'padding-left': '10px',
+              'padding-bottom': '40px',
+              'padding-right': '40px',
+              'text-valign': 'top',
+              'text-halign': 'center',
+            }
+          },
         ],
         layout: {
           name: 'dagre',
           nodeDimensionsIncludeLabels: true,
-          //transform: function( node, pos ){ console.log(pos); return pos; },
-          minLen: function( edge ){
-            const source = edge.source().data().name;
-            const target = edge.target().data().name;
-            const minLen = 0.01;
-            const maxLen = 1;
-            var len = maxLen;
-            if (target === "Relu" || target === "BatchNormalization" || target === "LRN")
-                len = minLen;
-            if (len < maxLen) {
-              edge.data('name', '');
-            }
-            return len;
-          },
+          rankDir: 'TB',
+          ranker: 'longest-path',//'tight-tree',
           rankSep: 100,
           edgeSep: 500,
         },
@@ -62,7 +78,7 @@ const page = {
         minZoom: 1/8,
         maxZoom: 1,
         autoungrabify: true,
-      }
+      },
     }
   },
   computed: {
@@ -73,38 +89,79 @@ const page = {
   watch: {
     nodes: function (newList, oldList) {
       let nodes = [];
-      let output_source = {};
-      for (let i in newList) {
-        let node = newList[i];
-        if (node.outputs === undefined) node.outputs = [];
-        if (node.inputs === undefined) node.inputs = [];
+      let edges = [];
 
-        for (let out of node.outputs) {
-          output_source[out] = i
+      let output_source = {};
+
+      for (let node of newList) {
+        // If no input / output set empty list
+        if (node.outputs === undefined) node.outputs = [];
+        if (node.inputs === undefined)  node.inputs = [];
+
+        // Generate unique id for this node
+        const uid  = genUID();
+        const name = node.op;
+
+        // Parse inputs and find parent nodes
+        let parent_nodes = {};
+        for (let inp_name in node.inputs) {
+          let parent_id = output_source[inp_name];
+          parent_nodes[parent_id] = String(node.inputs[inp_name]).replace(/,/g, "x");
         }
+
+        // Set the source for outputs produced by this node
+        for (let out_name of node.outputs)
+          output_source[out_name] = uid;
+
+        // If this node is a mergeable node, then find the source node
+        // and change name.
+        // Assuming mergeable nodes only have one input.
+        if (mergeable_nodes.includes(name)) {
+          if (name in name_map) name = name_map[name];
+
+          let parent_id = Object.keys(parent_nodes)[0];
+
+          // Change the source of outputs
+          for (let out_name of node.outputs)
+            output_source[out_name] = parent_id;
+
+          for (let node of nodes) {
+            if (node.data.id === parent_id) {
+              node.data.name += ' + '+name;
+              break;
+            }
+          }
+          continue;
+        }
+
+        // Push nodes
+        if (name in name_map) name = name_map[name];
         nodes.push({
           data: {
-            id: i,
-            name: node.op,
+            id: uid,
+            name: name,
           }
-        })
-        for (let inp in node.inputs) {
-          if (inp in output_source) {
-            nodes.push({
-              data: {
-                id: output_source[inp] + i + newList.length,
-                name: String(node.inputs[inp]).replace(/,/g, "x"),
-                source: output_source[inp],
-                target: i,
-              }
-            })
-          }
+        });
+
+        // Push edges from parents
+        for (let parent_id in parent_nodes) {
+          edges.push({
+            data: {
+              id: genUID(),
+              name: parent_nodes[parent_id],
+              source: parent_id,
+              target: uid
+            }
+          });
         }
       }
+
       this.$cytoscape.instance.then(cy => {
         cy.remove(cy.elements());
-        for (let node of nodes)
-          cy.add(node);
+        cy.add({
+          nodes: nodes,
+          edges: edges,
+        });
         const layout = cy.layout(this.config.layout);
         layout.run();
       })
@@ -112,11 +169,11 @@ const page = {
   },
   mounted () {
     this.$cytoscape.instance.then(cy => {
+      const layout = cy.layout(this.config.layout);
     });
   },
   methods: {
    preConfig (cytoscape) {
-     // it can be used both ways
      cytoscape.use(dagre);
      // cytoscape.use(contextMenus, jquery)
    },
