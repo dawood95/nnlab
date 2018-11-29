@@ -1,17 +1,29 @@
 <template>
-    <cytoscape :config="config" :preConfig="preConfig" style="height: 550px;"/>
+  <svg id='svg-canvas'><g/></svg>
 </template>
 
 <script>
 import { mapGetters } from 'vuex';
-import dagre from 'cytoscape-dagre';
-import jquery from 'jquery';
+
+import * as dagreD3 from 'dagre-d3';
+import * as d3 from 'd3';
 
 function genUID() {
   let uid;
   uid  = Math.random().toString(36).substring(2, 15);
   uid += Math.random().toString(36).substring(2, 15);
   return uid;
+}
+
+function formatter(val) {
+  if (val > 1e9)
+    return (val/1e9).toFixed(2)+"G"
+  else if (val > 1e6)
+    return (val/1e6).toFixed(2)+"M"
+  else if (val > 1e3)
+    return (val/1e3).toFixed(2)+"k"
+  else
+    return val.toFixed(2)
 }
 
 const mergeable_nodes = [
@@ -24,63 +36,39 @@ const name_map = {
   "AveragePool": "AvgPool",
 };
 
+// Add our custom shape (a house)
+function activBlock(parent, bbox, node) {
+  console.log(node);
+  let shapeSvg;
+  let  w, h, points;
+  w = bbox.width;
+  h = bbox.height;
+  shapeSvg = parent.insert("rect")
+  .attr("x", 0)
+  .attr("y", 0)
+  .attr("width", w)
+  .attr("height", h)
+  .attr("transform", "translate(" + (-w/2) + "," + (-h * 1/2 + 3) + ")");
+
+  parent
+  .append("text")
+  .text(node.label)
+  .attr("x", 0)
+  .attr("y", h/10)
+  .attr('dominant-baseline',"middle")
+  .attr('text-anchor', "middle")
+  //.attr("transform", "translate(0,"+h/10+")")
+  .style('cursor', 'pointer');
+
+  node.intersect = function(point) {
+    return dagreD3.intersect.rect(node, point);
+  };
+
+  return shapeSvg;
+};
+
 const page = {
   name: 'ModelGraph',
-  data() {
-    return {
-      config: {
-        elements: [],
-        style: [
-          {
-            selector: 'node',
-            style: {
-              'label': 'data(name)',
-              'shape': 'rectangle',
-              'text-valign': 'center',
-              'width': 'label',
-              'height': 'label',
-              'font-size': 26,
-              'padding': 20,
-            }
-          }, {
-            selector: 'edge',
-            style: {
-              'label': 'data(name)',
-              'text-background-color': 'whitesmoke',
-              'text-background-opacity': 1,
-              'width': 3,
-              'curve-style': 'bezier',
-              'font-size': 24,
-              'target-arrow-shape': 'triangle',
-              'arrow-scale': 2,
-            }
-          }, {
-            selector: '$node > node',
-            css: {
-              'padding-top': '10px',
-              'padding-left': '10px',
-              'padding-bottom': '40px',
-              'padding-right': '40px',
-              'text-valign': 'top',
-              'text-halign': 'center',
-            }
-          },
-        ],
-        layout: {
-          name: 'dagre',
-          nodeDimensionsIncludeLabels: true,
-          rankDir: 'TB',
-          ranker: 'longest-path',//'tight-tree',
-          rankSep: 100,
-          edgeSep: 500,
-        },
-        zoomingEnabled: true,
-        minZoom: 1/8,
-        maxZoom: 1,
-        autoungrabify: true,
-      },
-    }
-  },
   computed: {
     ...mapGetters([
       'nodes'
@@ -90,13 +78,18 @@ const page = {
     nodes: function (newList, oldList) {
       let nodes = [];
       let edges = [];
-
       let output_source = {};
+
+      let maxOps = 0;
+      let maxParams = 0;
 
       for (let node of newList) {
         // If no input / output set empty list
         if (node.outputs === undefined) node.outputs = [];
         if (node.inputs === undefined)  node.inputs = [];
+
+        if (node.numOps > maxOps) maxOps = node.numOps;
+        if (node.numParams > maxParams) maxParams = node.numParams;
 
         // Generate unique id for this node
         const uid  = genUID();
@@ -125,9 +118,11 @@ const page = {
           for (let out_name of node.outputs)
             output_source[out_name] = parent_id;
 
-          for (let node of nodes) {
-            if (node.data.id === parent_id) {
-              node.data.name += ' + '+name;
+          for (let n of nodes) {
+            if (n.data.id === parent_id) {
+              n.data.name += ' + '+name;
+              n.data.numOps += node.numOps;
+              n.data.numParams += node.numParams;
               break;
             }
           }
@@ -140,6 +135,9 @@ const page = {
           data: {
             id: uid,
             name: name,
+            numOps: node.numOps,
+            numParams: node.numParams,
+            shape: 'activBlock'
           }
         });
 
@@ -156,29 +154,248 @@ const page = {
         }
       }
 
-      this.$cytoscape.instance.then(cy => {
-        cy.remove(cy.elements());
-        cy.add({
-          nodes: nodes,
-          edges: edges,
-        });
-        const layout = cy.layout(this.config.layout);
-        layout.run();
+      var g = new dagreD3.graphlib.Graph().setGraph({
+        ranker: 'tight-tree',
+      });
+
+      for (let node of nodes)
+        g.setNode(
+          node.data.id,
+          {
+            label: node.data.name,
+            shape: node.data.shape,
+            ops  : node.data.numOps,
+            params: node.data.numParams,
+          }
+        );
+      for (let edge of edges)
+        g.setEdge(
+          edge.data.source,
+          edge.data.target,
+          {
+            arrowhead: 'normal',
+            label: edge.data.name,
+            curve: d3.curveBasis,
+            labelpos: 'c',
+          }
+        );
+
+      var svg = d3.select("svg");
+      svg.attr("height", svg.node().parentNode.scrollHeight);
+      svg.attr("width", svg.node().parentNode.scrollWidth);
+      var inner = svg.select("g");
+      // Set up zoom support
+      var zoom = d3.zoom().on("zoom", function() {
+            inner.attr("transform", d3.event.transform);
+          });
+      svg.call(zoom);
+      // Create the renderer
+      var render = new dagreD3.render();
+      //render.shapes().normBlock = normBlock;
+      //render.shapes().normActivBlock = normActivBlock;
+      render.shapes().activBlock = activBlock;
+
+      render(inner, g);
+
+      var padding = {
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0
+      };
+
+      // when rendering complete, select all labels
+      svg.selectAll('g.edgeLabel').each(function() {
+        var labelGroup = d3.select(this);
+        var bbox = labelGroup.node().getBBox();
+        labelGroup.insert('rect', ':first-child')
+          .attr('x', bbox.x - padding.left)
+          .attr('y', bbox.y - padding.top)
+          .attr('width', bbox.width + padding.left + padding.right)
+          .attr('height', bbox.height + padding.top + padding.bottom)
+          .attr('rx', 2);
+      });
+
+      let opsData = {};
+      let paramsData = {};
+      for (let node_id of g.nodes()) {
+        let node = g.node(node_id);
+        if (!(node.y in opsData)) opsData[node.y] = 0;
+        if (!(node.y in paramsData)) paramsData[node.y] = 0;
+        opsData[node.y] += node.ops;
+        paramsData[node.y] += node.params;
+      }
+      opsData = Object.entries(opsData).map(([key, value]) => ({key,value}));
+      paramsData = Object.entries(paramsData).map(([key, value]) => ({key,value}));
+
+      if (opsData.length === 0) return;
+      let width = g._label.width;
+
+      let tooltip = inner.insert('g');
+
+      tooltip.append('line')
+        .attr('x1', -width/0.75)
+        .attr('y1', 0)
+        .attr('x2', 0)
+        .attr('y2', 0)
+        .style('stroke', '#cecece')
+        .style('stroke-width', 6)
+
+      tooltip.append('line')
+          .attr('x1', width)
+          .attr('y1', 0)
+          .attr('x2', width + width/0.75)
+          .attr('y2', 0)
+          .style('stroke', '#cecece')
+          .style('stroke-width', 6)
+
+
+      let opsText = inner.insert('text')
+        .attr('x', width + width/0.75)
+        .attr('y', 0)
+        .text("")
+        .style('opacity', 0)
+        .style('font-size', '24px')
+        .attr('dominant-baseline',"start")
+
+      let area, line;
+
+      area = d3.area()
+      .y1(d => d.key)
+      .x0(d => 0)
+      .y0(d => 0)
+      .x(d => width*d.value/(maxOps*0.75))
+      .curve(d3.curveBasis);
+
+      line = d3.line()
+      .y(d => d.key)
+      .x(d => width*d.value/(maxOps*0.75))
+      .curve(d3.curveBasis);
+
+      inner.insert("path")
+      .datum(opsData)
+      .attr("d", area)
+      .attr("fill", "#3498db")
+      .attr("opacity", 0.50)
+      .attr("transform", "translate(" + width * 1.10 + ",0)");
+
+      inner.insert("path")
+      .datum(opsData)
+      .attr("d", line)
+      .attr("fill", "none")
+      .attr("stroke", "#3498db")
+      .attr("stroke-width", "4px")
+      .attr("transform", "translate(" + width * 1.10 + ",0)");
+
+      area = d3.area()
+      .y1(d => d.key)
+      .x0(d=>0)
+      .y0(d=>0)
+      .x(d => width*d.value/(maxParams*0.75))
+      .curve(d3.curveBasis);
+
+      line = d3.line()
+      .y(d => d.key)
+      .x(d => width*d.value/(maxParams*0.75))
+      .curve(d3.curveBasis);
+
+      inner.insert("path")
+      .datum(paramsData)
+      .attr("d", area)
+      .attr("fill", "#2ecc71")
+      .attr("opacity", 0.50)
+      .attr("transform", "translate(" + -width * 0.10 + ",0)"+"scale(-1, 1)");
+
+      inner.insert("path")
+      .datum(paramsData)
+      .attr("d", line)
+      .attr("fill", "none")
+      .attr("stroke", "#2ecc71")
+      .attr("stroke-width", "4px")
+      .attr("transform", "translate(" + -width * 0.10 + ",0)"+"scale(-1, 1)");
+
+      svg
+      .on("mouseout", function() {
+        tooltip.style("opacity", null).style("opacity", 0);
+        opsText.style("opacity", null).style("opacity", 0);
       })
+      .on("mousemove", function() {
+        tooltip.style("opacity", null).style("opacity", 0.5);
+        opsText.style("opacity", null).style("opacity", 1);
+        const mouse = d3.mouse(d3.select("svg g").node());
+        const y = mouse[1];
+        let minDist = Infinity;
+        let matchingY = opsData[0].key;
+        let val = opsData[0].value;
+        for (let d of opsData) {
+          let dist = Math.abs(y - d.key);
+          if (dist < minDist) {
+            minDist = dist;
+            matchingY = d.key;
+            val = d.value;
+          }
+        }
+        tooltip.attr("transform", null)
+        .attr("transform", "translate(0,"+matchingY+")");
+
+        opsText.attr("transform", null)
+        .attr("transform", "translate(5,"+matchingY+")");
+        opsText.text(formatter(val));
+      })
+      .on("mouseenter", function() {
+        tooltip.style("opacity", null).style("opacity", 0.5);
+        opsText.style("opacity", null).style("opacity", 1);
+
+      });
+
+
+
+
+      // Center the graph
+      const initialScale = 0.75;
+      if (g.graph().width !== -Infinity)
+        svg.call(zoom.transform,
+          d3.zoomIdentity
+          .translate((svg.node().parentNode.scrollWidth - g.graph().width * initialScale) / 2, 20)
+          .scale(initialScale)
+        );
     },
   },
-  mounted () {
-    this.$cytoscape.instance.then(cy => {
-      const layout = cy.layout(this.config.layout);
-    });
-  },
-  methods: {
-   preConfig (cytoscape) {
-     cytoscape.use(dagre);
-     // cytoscape.use(contextMenus, jquery)
-   },
- }
-};
+}
 
 export default page;
 </script>
+
+<style>
+
+g.type-TK > rect {
+  fill: #00ffd0;
+}
+
+.label {
+  z-index: 1;
+  font-family: "Ubuntu Mono", monospace;
+}
+
+.node rect,
+.node circle,
+.node ellipse,
+.node polygon {
+  stroke: #333;
+  fill: #fff;
+  stroke-width: 1.5px;
+  z-index: -1;
+}
+
+.edgePath path {
+  stroke: #333;
+  fill: #333;
+  stroke-width: 2.5px;
+  cursor: pointer;
+}
+
+.edgeLabel rect {
+  fill: #fafafa;
+}
+
+</style>

@@ -27,7 +27,7 @@
         </div>
       </div>
   </div>
-    <codemirror v-model="code" :options="cmOptions" class="is-size-7">
+    <codemirror v-model="code" :options="cmOptions" class="is-size-6">
     </codemirror>
   </div>
 </template>
