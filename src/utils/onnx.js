@@ -165,13 +165,18 @@ class ONNX {
     this.processing = false;
   }
 
-  parseCode(model) {
+  parseCode(model, st) {
     this.processing = true;
     this.layers = model;
-    this.calc();
+    try {
+      this.calc();
+      st.compileStatus = "done";
+    } catch (err) {
+      st.compileStatus = "error";
+    }
   }
 
-  parseProto(model) {
+  parseProto(model, st) {
     this.processing = true;
     this.layers = [];
     this.input_shapes = {};
@@ -233,7 +238,12 @@ class ONNX {
       });
     }
 
-    this.calc();
+    try {
+      this.calc();
+      st.compileStatus = "done";
+    } catch (err) {
+      st.compileStatus = "error";
+    }
   }
 
   calc() {
@@ -366,6 +376,7 @@ class ONNX {
           if (shape[i] === -1)
             shape[i] = (dataProd / (-1 * shapeProd));
         this.input_shapes[layer.outputs[0]] = shape;
+        console.log("BOON");
       }
       else if (layer.op === "Transpose") {
         let input = this.input_shapes[layer.inputs[0]];
@@ -426,7 +437,7 @@ class ONNX {
 
       }
       else {
-        console.error(layer.op + " Not valid");
+        throw layer.op + " Not valid";
       }
       layer['numOps'] = ops;
       layer['numParams'] = params;

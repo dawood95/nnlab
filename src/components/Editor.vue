@@ -1,5 +1,5 @@
 <template>
-  <div style="height: 100%; min-height: 100%;">
+  <div>
     <div class="field has-addons is-marginless">
       <div class="control">
         <div class="file is-small">
@@ -21,13 +21,13 @@
       </div>
       <div class="control">
         <div>
-          <span v-if='compiles === "done"' class="tag is-success">success</span>
-          <span v-else-if='compiles === "processing"' class="tag is-warning">processing</span>
+          <span v-if='compileStatus === "done"' class="tag is-success">success</span>
+          <span v-else-if='compileStatus === "processing"' class="tag is-warning">processing</span>
           <span v-else class="tag is-danger">failed</span>
         </div>
       </div>
-  </div>
-    <codemirror v-model="code" :options="cmOptions" class="is-size-6">
+    </div>
+    <codemirror v-model="code" :options="cmOptions" class="is-size-7">
     </codemirror>
   </div>
 </template>
@@ -60,7 +60,6 @@ export default {
     return {
       //code: initialCode,
       modifiedCode: '[]',
-      compiles: 'done',
       cmOptions: {
         // codemirror options
         tabSize: 4,
@@ -90,22 +89,21 @@ export default {
     },
     ...mapGetters([
       'fileName',
+      'compileStatus'
     ]),
   },
   methods: {
     process() {
-      console.log("ADASDA");
-      this.compiles = 'processing';
+      this.$store.commit('setCompileStatus', 'processing');
       let modelDef = null;
       try {
         modelDef = JSON.parse(this.modifiedCode);
         this.$store.commit('setCode', modelDef);
       }
       catch (error) {
-        this.compiles = 'error';
+        this.$store.commit('setCompileStatus', 'error');
         return;
       }
-      this.compiles = 'done';
     },
     setOnnx(ev) {
       protobuf.load('onnx.proto', (err, root) => {
@@ -118,7 +116,7 @@ export default {
 
         const reader = new FileReader();
 
-        this.compiles = "processing";
+        this.$store.commit('setCompileStatus', 'processing');
         // set filename
         this.$store.commit('setFileName', file.name);
 
@@ -128,7 +126,6 @@ export default {
           const ModelProto = onnxRoot.lookupType('onnx.ModelProto');
           const onnxModel = ModelProto.decode(buffer);
           this.$store.commit('setModel', onnxModel);
-          this.compiles = "done";
         };
         reader.readAsArrayBuffer(file);
       });
@@ -142,21 +139,13 @@ export default {
 @import '../../node_modules/codemirror/lib/codemirror.css';
 
 .vue-codemirror {
-  flex:1 1 auto;
-  margin-top:0;
-  height: calc(550px - 27px); //27 cause of buttons
-  position:relative;
+  height: calc(100vh - 124px);
 }
 
 .CodeMirror {
-  position:absolute;
-  top:0;
-  bottom:0;
-  left:0;
-  right:0;
-  height: 100%;
+    height: calc(100vh - 124px);
 }
-
+/*
 .CodeMirror-vscrollbar, .CodeMirror-hscrollbar, .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
   position: absolute;
   z-index: 6;
@@ -190,10 +179,10 @@ export default {
 		height: 100%;
 		-moz-box-sizing: content-box;
 		box-sizing: content-box;
-		padding-bottom: 30px;
-		margin-bottom: -32px;
+		//padding-bottom: 30px;
+		//margin-bottom: -32px;
 		display: inline-block;
-		/* Hack to make IE7 behave */
+		// Hack to make IE7 behave 
 		*zoom:1;
 		*display:inline;
 	}
@@ -202,5 +191,5 @@ export default {
 		cursor: default;
 		z-index: 4;
 	}
-
+*/
 </style>

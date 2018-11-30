@@ -8,11 +8,13 @@ const state = {
   modelName: '',
   producerName: '',
   opsetVersion: '',
+  compileStatus: 'done',
   onnx: new ONNX(),
 };
 
 const getters = {
   fileName: st => st.fileName,
+  compileStatus: st => st.compileStatus,
   code: st => {
     return stringify(st.onnx.layers.map((d, i) => {
       let newObj = {};
@@ -76,14 +78,17 @@ const mutations = {
     st.fileName = fileName;
   },
   setModel: (st, modelProto) => {
-    st.onnx.parseProto(modelProto);
+    st.onnx.parseProto(modelProto, st);
     st.modelName = modelProto.graph.name;
     st.producerName = modelProto.producerName;
     st.opsetVersion = modelProto.opsetImport[0].version;
   },
   setCode: (st, modelDef) => {
-    st.onnx.parseCode(modelDef);
+    st.onnx.parseCode(modelDef, st);
   },
+  setCompileStatus: (st, stat) => {
+    st.compileStatus = stat;
+  }
 };
 
 const actions = {

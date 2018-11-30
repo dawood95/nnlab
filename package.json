@@ -16,6 +16,7 @@
     "britecharts": "^2.9.7",
     "bulma": "^0.7.1",
     "cytoscape-dagre": "^2.2.2",
+    "d3": "^5.7.0",
     "dagre-d3": "^0.6.1",
     "frappe-charts": "^1.1.0",
     "int64-buffer": "^0.99.1007",

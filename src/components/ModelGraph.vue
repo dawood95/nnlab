@@ -38,7 +38,6 @@ const name_map = {
 
 // Add our custom shape (a house)
 function activBlock(parent, bbox, node) {
-  console.log(node);
   let shapeSvg;
   let  w, h, points;
   w = bbox.width;
@@ -69,6 +68,11 @@ function activBlock(parent, bbox, node) {
 
 const page = {
   name: 'ModelGraph',
+  data () {
+    return {
+      'zoomSet': false,
+    };
+  },
   computed: {
     ...mapGetters([
       'nodes'
@@ -184,11 +188,7 @@ const page = {
       svg.attr("height", svg.node().parentNode.scrollHeight);
       svg.attr("width", svg.node().parentNode.scrollWidth);
       var inner = svg.select("g");
-      // Set up zoom support
-      var zoom = d3.zoom().on("zoom", function() {
-            inner.attr("transform", d3.event.transform);
-          });
-      svg.call(zoom);
+
       // Create the renderer
       var render = new dagreD3.render();
       //render.shapes().normBlock = normBlock;
@@ -348,12 +348,16 @@ const page = {
 
       });
 
-
-
-
       // Center the graph
       const initialScale = 0.75;
-      if (g.graph().width !== -Infinity)
+      if (g.graph().width !== -Infinity && this.zoomSet === false)
+        // Set up zoom support
+        var zoom = d3.zoom().on("zoom", function() {
+          inner.attr("transform", d3.event.transform);
+        });
+        svg.call(zoom);
+        this.zoomSet = true;
+        console.log("Setting zoom");
         svg.call(zoom.transform,
           d3.zoomIdentity
           .translate((svg.node().parentNode.scrollWidth - g.graph().width * initialScale) / 2, 20)
