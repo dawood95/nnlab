@@ -376,7 +376,6 @@ class ONNX {
           if (shape[i] === -1)
             shape[i] = (dataProd / (-1 * shapeProd));
         this.input_shapes[layer.outputs[0]] = shape;
-        console.log("BOON");
       }
       else if (layer.op === "Transpose") {
         let input = this.input_shapes[layer.inputs[0]];

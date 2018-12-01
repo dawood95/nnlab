@@ -1,5 +1,5 @@
 <template>
-  <svg id='svg-canvas'><g/></svg>
+  <svg id='svg-canvas' class="card"><g/></svg>
 </template>
 
 <script>
@@ -7,24 +7,7 @@ import { mapGetters } from 'vuex';
 
 import * as dagreD3 from 'dagre-d3';
 import * as d3 from 'd3';
-
-function genUID() {
-  let uid;
-  uid  = Math.random().toString(36).substring(2, 15);
-  uid += Math.random().toString(36).substring(2, 15);
-  return uid;
-}
-
-function formatter(val) {
-  if (val > 1e9)
-    return (val/1e9).toFixed(2)+"G"
-  else if (val > 1e6)
-    return (val/1e6).toFixed(2)+"M"
-  else if (val > 1e3)
-    return (val/1e3).toFixed(2)+"k"
-  else
-    return val.toFixed(2)
-}
+import util from '@/utils/util.js';
 
 const mergeable_nodes = [
   "Relu",
@@ -34,36 +17,6 @@ const mergeable_nodes = [
 const name_map = {
   "BatchNormalization": "BN",
   "AveragePool": "AvgPool",
-};
-
-// Add our custom shape (a house)
-function activBlock(parent, bbox, node) {
-  let shapeSvg;
-  let  w, h, points;
-  w = bbox.width;
-  h = bbox.height;
-  shapeSvg = parent.insert("rect")
-  .attr("x", 0)
-  .attr("y", 0)
-  .attr("width", w)
-  .attr("height", h)
-  .attr("transform", "translate(" + (-w/2) + "," + (-h * 1/2 + 3) + ")");
-
-  parent
-  .append("text")
-  .text(node.label)
-  .attr("x", 0)
-  .attr("y", h/10)
-  .attr('dominant-baseline',"middle")
-  .attr('text-anchor', "middle")
-  //.attr("transform", "translate(0,"+h/10+")")
-  .style('cursor', 'pointer');
-
-  node.intersect = function(point) {
-    return dagreD3.intersect.rect(node, point);
-  };
-
-  return shapeSvg;
 };
 
 const page = {
@@ -79,7 +32,43 @@ const page = {
     ]),
   },
   watch: {
-    nodes: function (newList, oldList) {
+    nodes: function (newList, oldList) {  
+      let t = this;
+      function activBlock(parent, bbox, node) {
+        let  w, h, points;
+        w = bbox.width;
+        h = bbox.height;
+
+        let shapeSvg = parent.insert("rect")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", w)
+        .attr("height", h)
+        .attr("transform", "translate(" + (-w/2) + "," + (-h * 1/2 + 3) + ")");
+
+        let textSvg = parent.insert ("text")
+        .text(node.label)
+        .attr("x", 0)
+        .attr("y", h/10)
+        .attr('dominant-baseline',"middle")
+        .attr('text-anchor', "middle")
+        //.attr("transform", "translate(0,"+h/10+")")
+        .style('cursor', 'pointer');
+
+        node.intersect = function(point) {
+          return dagreD3.intersect.rect(node, point);
+        };
+
+        function nodeClick () {
+          t.$store.commit('setNodeInfo', node.param_list);
+        }
+
+        shapeSvg.on("click", nodeClick);
+        textSvg.on("click", nodeClick);
+
+        return shapeSvg;
+      };
+
       let nodes = [];
       let edges = [];
       let output_source = {};
@@ -96,7 +85,7 @@ const page = {
         if (node.numParams > maxParams) maxParams = node.numParams;
 
         // Generate unique id for this node
-        const uid  = genUID();
+        const uid  = util.genUID();
         const name = node.op;
 
         // Parse inputs and find parent nodes
@@ -127,6 +116,10 @@ const page = {
               n.data.name += ' + '+name;
               n.data.numOps += node.numOps;
               n.data.numParams += node.numParams;
+              n.data.params.push({
+                name: name,
+                params: node.params
+              });
               break;
             }
           }
@@ -141,7 +134,11 @@ const page = {
             name: name,
             numOps: node.numOps,
             numParams: node.numParams,
-            shape: 'activBlock'
+            shape: 'activBlock',
+            params: [{
+              name: name,
+              params: node.params
+            }],
           }
         });
 
@@ -149,7 +146,7 @@ const page = {
         for (let parent_id in parent_nodes) {
           edges.push({
             data: {
-              id: genUID(),
+              id: util.genUID(),
               name: parent_nodes[parent_id],
               source: parent_id,
               target: uid
@@ -170,6 +167,7 @@ const page = {
             shape: node.data.shape,
             ops  : node.data.numOps,
             params: node.data.numParams,
+            param_list: node.data.params,
           }
         );
       for (let edge of edges)
@@ -218,12 +216,14 @@ const page = {
 
       let opsData = {};
       let paramsData = {};
+      let nodeHeight = 0;
       for (let node_id of g.nodes()) {
         let node = g.node(node_id);
         if (!(node.y in opsData)) opsData[node.y] = 0;
         if (!(node.y in paramsData)) paramsData[node.y] = 0;
         opsData[node.y] += node.ops;
         paramsData[node.y] += node.params;
+        nodeHeight = node.elem.getBBox().height;
       }
       opsData = Object.entries(opsData).map(([key, value]) => ({key,value}));
       paramsData = Object.entries(paramsData).map(([key, value]) => ({key,value}));
@@ -236,41 +236,70 @@ const page = {
       tooltip.append('line')
         .attr('x1', -width/0.75)
         .attr('y1', 0)
-        .attr('x2', 0)
+        .attr('x2', -width*0.10)
         .attr('y2', 0)
-        .style('stroke', '#cecece')
+        .style('stroke', '#2ecc71')
         .style('stroke-width', 6)
-
+      tooltip.append('text')
+        .attr('x', -width*0.10 - 140)
+        .attr('y', -4)
+        .text("PARAMS")
+        .style('font-size', '32px')
+        .style('font-weight', '500')
+        .style('fill', '#2ecc71')
+        .style('stroke', '#2ecc71')
+        .attr('dominant-baseline',"baseline")
       tooltip.append('line')
-          .attr('x1', width)
-          .attr('y1', 0)
-          .attr('x2', width + width/0.75)
-          .attr('y2', 0)
-          .style('stroke', '#cecece')
-          .style('stroke-width', 6)
-
+        .attr('x1', width + width*0.10)
+        .attr('y1', 0)
+        .attr('x2', width + width/0.75)
+        .attr('y2', 0)
+        .style('stroke', '#3498db')
+       .style('stroke-width', 6)
+      tooltip.append('text')
+        .attr('x', width + width*0.10 + 4)
+        .attr('y', -4)
+        .text("OPS")
+        .style('font-weight', '500')
+        .style('font-size', '32px')
+        .style('fill', '#3498db')
+        .style('stroke', '#3498db')
+        .attr('dominant-baseline',"baseline")
 
       let opsText = inner.insert('text')
         .attr('x', width + width/0.75)
         .attr('y', 0)
         .text("")
         .style('opacity', 0)
-        .style('font-size', '24px')
-        .attr('dominant-baseline',"start")
+        .style('font-size', '32px')
+        .style('fill', '#3498db')
+        .attr('dominant-baseline',"baseline")
+
+      let paramsText = inner.insert('text')
+        .attr('x', -width/0.75)
+        .attr('y', 0)
+        .text("")
+        .style('opacity', 0)
+        .style('font-size', '32px')
+        .style('fill', '#2ecc71')
+        .attr('dominant-baseline',"baseline")
+
+      let paramsTextOffset = paramsText.node().getBBox().width + 5;
 
       let area, line;
+      let curve = d3.curveBasis;
 
       area = d3.area()
       .y1(d => d.key)
       .x0(d => 0)
       .y0(d => 0)
       .x(d => width*d.value/(maxOps*0.75))
-      .curve(d3.curveBasis);
+      .curve(curve);
 
       line = d3.line()
       .y(d => d.key)
       .x(d => width*d.value/(maxOps*0.75))
-      .curve(d3.curveBasis);
+      .curve(curve);
 
       inner.insert("path")
       .datum(opsData)
@@ -292,12 +321,12 @@ const page = {
       .x0(d=>0)
       .y0(d=>0)
       .x(d => width*d.value/(maxParams*0.75))
-      .curve(d3.curveBasis);
+      .curve(curve);
 
       line = d3.line()
       .y(d => d.key)
       .x(d => width*d.value/(maxParams*0.75))
-      .curve(d3.curveBasis);
+      .curve(curve);
 
       inner.insert("path")
       .datum(paramsData)
@@ -318,40 +347,60 @@ const page = {
       .on("mouseout", function() {
         tooltip.style("opacity", null).style("opacity", 0);
         opsText.style("opacity", null).style("opacity", 0);
+        paramsText.style("opacity", null).style("opacity", 0);
       })
       .on("mousemove", function() {
-        tooltip.style("opacity", null).style("opacity", 0.5);
+        tooltip.style("opacity", null).style("opacity", 0.8);
         opsText.style("opacity", null).style("opacity", 1);
+        paramsText.style("opacity", null).style("opacity", 1);
+
         const mouse = d3.mouse(d3.select("svg g").node());
         const y = mouse[1];
         let minDist = Infinity;
         let matchingY = opsData[0].key;
-        let val = opsData[0].value;
+        let opsVal = opsData[0].value;
+        let paramVal = paramsData[0].value;
         for (let d of opsData) {
           let dist = Math.abs(y - d.key);
           if (dist < minDist) {
             minDist = dist;
             matchingY = d.key;
-            val = d.value;
+            opsVal = d.value;
           }
         }
+        minDist = Infinity;
+        for (let d of paramsData) {
+          let dist = Math.abs(y - d.key);
+          if (dist < minDist) {
+            minDist = dist;
+            matchingY = d.key;
+            paramVal = d.value;
+          }
+        }
+
         tooltip.attr("transform", null)
         .attr("transform", "translate(0,"+matchingY+")");
 
+        opsText.text(util.formatter(opsVal));
+        paramsText.text(util.formatter(paramVal));
+        
+        paramsTextOffset = paramsText.node().getBBox().width + 5
         opsText.attr("transform", null)
         .attr("transform", "translate(5,"+matchingY+")");
-        opsText.text(formatter(val));
+        paramsText.attr("transform", null)
+        .attr("transform", "translate("+-paramsTextOffset+","+matchingY+")");
       })
       .on("mouseenter", function() {
-        tooltip.style("opacity", null).style("opacity", 0.5);
+        tooltip.style("opacity", null).style("opacity", 0.8);
         opsText.style("opacity", null).style("opacity", 1);
+        paramsText.style("opacity", null).style("opacity", 1);
 
       });
 
       // Center the graph
-      const initialScale = 0.75;
-      if (g.graph().width !== -Infinity && this.zoomSet === false)
+      if (g.graph().width !== -Infinity && this.zoomSet === false) {
         // Set up zoom support
+        var initialScale = svg.node().getBoundingClientRect().height / (inner.node().getBBox().height + nodeHeight);
         var zoom = d3.zoom().on("zoom", function() {
           inner.attr("transform", d3.event.transform);
         });
@@ -360,9 +409,10 @@ const page = {
         console.log("Setting zoom");
         svg.call(zoom.transform,
           d3.zoomIdentity
-          .translate((svg.node().parentNode.scrollWidth - g.graph().width * initialScale) / 2, 20)
+          .translate((svg.node().parentNode.scrollWidth - g.graph().width * initialScale) / 2, nodeHeight/2)
           .scale(initialScale)
         );
+      }
     },
   },
 }

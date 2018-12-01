@@ -9,12 +9,14 @@ const state = {
   producerName: '',
   opsetVersion: '',
   compileStatus: 'done',
+  nodeInfo: [],
   onnx: new ONNX(),
 };
 
 const getters = {
   fileName: st => st.fileName,
   compileStatus: st => st.compileStatus,
+  nodeInfo: st => st.nodeInfo,
   code: st => {
     return stringify(st.onnx.layers.map((d, i) => {
       let newObj = {};
@@ -88,7 +90,8 @@ const mutations = {
   },
   setCompileStatus: (st, stat) => {
     st.compileStatus = stat;
-  }
+  },
+  setNodeInfo: (st, nodeInfo) => st.nodeInfo = nodeInfo,
 };
 
 const actions = {

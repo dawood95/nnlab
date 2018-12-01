@@ -1,8 +1,8 @@
 <template>
-  <div>
+  <div class="tile is-child card has-background-white-ter">
     <div class="field has-addons is-marginless">
       <div class="control">
-        <div class="file is-small">
+        <div class="file is-light">
           <label class="file-label">
             <input class="file-input" type="file" ref="onnx_path" @change="setOnnx">
             <span class="file-cta">
@@ -16,18 +16,16 @@
           </label>
         </div>
       </div>
-      <div class="control is-expanded has-text-centered is-small">
-        <p>{{fileName}}</p>
+      <div class="control is-expanded has-text-centered">
+        <label class="label is-large">{{fileName}}</label>
       </div>
       <div class="control">
-        <div>
-          <span v-if='compileStatus === "done"' class="tag is-success">success</span>
-          <span v-else-if='compileStatus === "processing"' class="tag is-warning">processing</span>
-          <span v-else class="tag is-danger">failed</span>
-        </div>
+          <span v-if='compileStatus === "done"' class="icon has-text-success is-medium"><i class="fas fa-circle"></i></span>
+          <span v-else-if='compileStatus === "processing"' class="icon has-text-warning is-medium"><i class="fas fa-circle"></i></span>
+          <span v-else class="icon has-text-danger is-medium"><i class="fas fa-circle"></i></span>
       </div>
     </div>
-    <codemirror v-model="code" :options="cmOptions" class="is-size-7">
+    <codemirror v-model="code" :options="cmOptions" class="is-size-6.5">
     </codemirror>
   </div>
 </template>
@@ -139,11 +137,17 @@ export default {
 @import '../../node_modules/codemirror/lib/codemirror.css';
 
 .vue-codemirror {
-  height: calc(100vh - 124px);
+  height: calc(100vh - 136px);
+  width: inherit;
 }
 
 .CodeMirror {
-    height: calc(100vh - 124px);
+  height: calc(100vh - 130px);
+  width: inherit;
+}
+
+.CodeMirror-scroll {
+  padding-bottom: 0;
 }
 /*
 .CodeMirror-vscrollbar, .CodeMirror-hscrollbar, .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
