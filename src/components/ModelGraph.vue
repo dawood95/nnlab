@@ -1,5 +1,8 @@
 <template>
-  <svg id='svg-canvas' class="card"><g/></svg>
+  <div class="tile is-child card has-background-white-bis">
+    <a class="button" style="position:absolute" v-on:click="exportSvg">Export</a>
+    <svg style="min-height: 50vh;" id='svg-canvas'><g/></svg>
+  </div>
 </template>
 
 <script>
@@ -9,6 +12,10 @@ import * as dagreD3 from 'dagre-d3';
 import * as d3 from 'd3';
 import util from '@/utils/util.js';
 
+//import FileSaver from 'file-saver';
+//import Blob from 'blueimp-canvas-to-blob';
+import saveSvg from 'save-svg-as-png';
+
 const mergeable_nodes = [
   "Relu",
   "BatchNormalization", "LRN",
@@ -17,19 +24,20 @@ const mergeable_nodes = [
 const name_map = {
   "BatchNormalization": "BN",
   "AveragePool": "AvgPool",
+  "GlobalAveragePool": "GlobalAvgPool"
 };
 
 const page = {
   name: 'ModelGraph',
-  data () {
-    return {
-      'zoomSet': false,
-    };
-  },
   computed: {
     ...mapGetters([
       'nodes'
     ]),
+  },
+  methods: {
+    exportSvg: function () {
+      saveSvg.saveSvgAsPng(d3.select("svg").node(), 'nnlab.png', {backgroundColor: '#fafafa'});
+    },
   },
   watch: {
     nodes: function (newList, oldList) {  
@@ -47,7 +55,7 @@ const page = {
         .attr("transform", "translate(" + (-w/2) + "," + (-h * 1/2 + 3) + ")");
 
         let textSvg = parent.insert ("text")
-        .text(node.label)
+        .text(node.name)
         .attr("x", 0)
         .attr("y", h/10)
         .attr('dominant-baseline',"middle")
@@ -91,7 +99,7 @@ const page = {
         // Parse inputs and find parent nodes
         let parent_nodes = {};
         for (let inp_name in node.inputs) {
-          let parent_id = output_source[inp_name];
+          let parent_id = output_source[inp_name];          
           parent_nodes[parent_id] = String(node.inputs[inp_name]).replace(/,/g, "x");
         }
 
@@ -118,7 +126,9 @@ const page = {
               n.data.numParams += node.numParams;
               n.data.params.push({
                 name: name,
-                params: node.params
+                params: node.params,
+                numOps: util.formatter(node.numOps),
+                numParams: util.formatter(node.numParams)
               });
               break;
             }
@@ -137,7 +147,9 @@ const page = {
             shape: 'activBlock',
             params: [{
               name: name,
-              params: node.params
+              params: node.params,
+              numOps: util.formatter(node.numOps),
+              numParams: util.formatter(node.numParams)
             }],
           }
         });
@@ -159,17 +171,19 @@ const page = {
         ranker: 'tight-tree',
       });
 
-      for (let node of nodes)
+      for (let node of nodes) {
         g.setNode(
           node.data.id,
           {
-            label: node.data.name,
+            label: ' '.repeat(node.data.name.length),
+            name: node.data.name,
             shape: node.data.shape,
             ops  : node.data.numOps,
             params: node.data.numParams,
             param_list: node.data.params,
           }
         );
+      }
       for (let edge of edges)
         g.setEdge(
           edge.data.source,
@@ -185,14 +199,12 @@ const page = {
       var svg = d3.select("svg");
       svg.attr("height", svg.node().parentNode.scrollHeight);
       svg.attr("width", svg.node().parentNode.scrollWidth);
+
       var inner = svg.select("g");
 
       // Create the renderer
       var render = new dagreD3.render();
-      //render.shapes().normBlock = normBlock;
-      //render.shapes().normActivBlock = normActivBlock;
       render.shapes().activBlock = activBlock;
-
       render(inner, g);
 
       var padding = {
@@ -224,9 +236,21 @@ const page = {
         opsData[node.y] += node.ops;
         paramsData[node.y] += node.params;
         nodeHeight = node.elem.getBBox().height;
-      }
+      }      
+      for (let k in opsData)
+        console.log(opsData[k]/maxOps);
       opsData = Object.entries(opsData).map(([key, value]) => ({key,value}));
       paramsData = Object.entries(paramsData).map(([key, value]) => ({key,value}));
+
+      let sort = (a, b) => {
+        a = parseFloat(a.key);
+        b = parseFloat(b.key);
+        console.log(a, b);
+        return a < b ? -1 : (a > b ? 1 : 0);
+      };
+
+      opsData.sort(sort);
+      paramsData.sort(sort);
 
       if (opsData.length === 0) return;
       let width = g._label.width;
@@ -396,16 +420,15 @@ const page = {
         paramsText.style("opacity", null).style("opacity", 1);
 
       });
-
+      
       // Center the graph
-      if (g.graph().width !== -Infinity && this.zoomSet === false) {
+      if (g.graph().width !== -Infinity) {
         // Set up zoom support
         var initialScale = svg.node().getBoundingClientRect().height / (inner.node().getBBox().height + nodeHeight);
         var zoom = d3.zoom().on("zoom", function() {
           inner.attr("transform", d3.event.transform);
         });
         svg.call(zoom);
-        this.zoomSet = true;
         console.log("Setting zoom");
         svg.call(zoom.transform,
           d3.zoomIdentity

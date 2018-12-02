@@ -1,4 +1,3 @@
-import compute from '@/utils/parser.js';
 import ONNX from '@/utils/onnx.js';
 
 const stringify = require("json-stringify-pretty-compact");
@@ -91,7 +90,9 @@ const mutations = {
   setCompileStatus: (st, stat) => {
     st.compileStatus = stat;
   },
-  setNodeInfo: (st, nodeInfo) => st.nodeInfo = nodeInfo,
+  setNodeInfo: (st, nodeInfo) => {
+    st.nodeInfo = nodeInfo
+  },
 };
 
 const actions = {

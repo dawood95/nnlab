@@ -19,8 +19,8 @@ function protoGenNode(nodeProto, inputs, input_names) {
       else if (x.name === "kernel_shape") kernel_size = x.ints;
       else if (x.name === "pads") {
         padding = [];
-        for (let i = 0; i < x.ints.length; i += 2)
-          padding.push(x.ints[i] + x.ints[i + 1]);
+        for (let i = 0; i < x.ints.length/2; i += 1)
+          padding.push(x.ints[i] + x.ints[i + x.ints.length/2]);
       }
       else if (x.name === "dilations") dilation = x.ints;
       else if (x.name === "group") groups = x.i
@@ -49,8 +49,8 @@ function protoGenNode(nodeProto, inputs, input_names) {
       else if (x.name === "kernel_shape") kernel_size = x.ints;
       else if (x.name === "pads") {
         padding = [];
-        for (let i = 0; i < x.ints.length; i += 2)
-          padding.push(x.ints[i] + x.ints[i + 1]);
+        for (let i = 0; i < x.ints.length/2; i += 1)
+          padding.push(x.ints[i] + x.ints[i + x.ints.length/2]);
       }
     }
 
@@ -59,6 +59,9 @@ function protoGenNode(nodeProto, inputs, input_names) {
 
     node['params'] = { kernel_size, stride, padding };
     node['inputs'] = [input_names[0]];
+  }
+  else if (opType === "GlobalAveragePool") {
+    node['inputs'] = input_names;
   }
   else if (opType === "Gemm") {
     // res = (A * B) + C
@@ -89,7 +92,7 @@ function protoGenNode(nodeProto, inputs, input_names) {
       node['params'] = {out_features, bias};
       node['inputs'].push(input_names[0]);
     } else {
-      console.error("Gemm for layers other than linear not supported rn");
+      throw new Error("Gemm for layers other than linear not supported rn");
       if (A === undefined) node['inputs'].push(input_names[0]);
       if (B === undefined) node['inputs'].push(input_names[1]);
       if (C === undefined) node['inputs'].push(input_names[2]);
@@ -144,7 +147,30 @@ function protoGenNode(nodeProto, inputs, input_names) {
     node['params'] = { ratio };
     node['inputs'] = [input_names[0]];
   }
-  else if (opType === "Relu" || opType === "Sum" || opType === "Add") {
+  else if (opType === "Relu" || opType === "Sum" || opType === "Add" || opType === "Mul") {
+    node['inputs'] = input_names;
+  }
+  else if (opType === "LeakyRelu") {
+    let alpha = 0;
+    for (let x of nodeProto.attribute)
+      if (x.name === "alpha") alpha = x.f;
+    node['params'] = { alpha };
+    node['inputs'] = input_names;
+  }
+  else if (opType === "ImageScaler") {
+    let bias;
+    let scale = 1;
+    for (let x of nodeProto.attribute)
+      if (x.name === "bias") bias = x.floats;
+      else if (x.name === "scale") scale = x.f;
+    node['params'] = { bias, scale };
+    node['inputs'] = input_names;
+  }
+  else if (opType === "Unsqueeze") {
+    let axes;
+    for (let x of nodeProto.attribute)
+      if (x.name === "axes") axes = x.ints;
+    node['params'] = { axes };
     node['inputs'] = input_names;
   }
   else {
@@ -169,7 +195,7 @@ class ONNX {
     this.processing = true;
     this.layers = model;
     try {
-      this.calc();
+      this.calc({});
       st.compileStatus = "done";
     } catch (err) {
       st.compileStatus = "error";
@@ -239,19 +265,22 @@ class ONNX {
     }
 
     try {
-      this.calc();
+      this.calc(weights);
       st.compileStatus = "done";
     } catch (err) {
+      console.log(err);
       st.compileStatus = "error";
     }
   }
 
-  calc() {
+  calc(weights) {
+    let weight_names = Object.keys(weights);
     this.input_shapes = {};
 
     let unprocessed_layers = [];
     for (let layer of this.layers) unprocessed_layers.push(layer);
-
+  
+    let iter = 0;
     while (unprocessed_layers.length > 0) {
       let layer = unprocessed_layers.shift();
 
@@ -261,9 +290,26 @@ class ONNX {
       if (layer.inputs !== undefined) {
         for (let input of layer.inputs) {
           hasInputs = hasInputs && (defined_inputs.includes(input));
+          if (!hasInputs) {
+            if (weight_names.includes(input)) {
+              hasInputs = true
+              this.layers.unshift({
+                op: "Input",
+                outputs: [String(input)],
+                params: {
+                  size: weights[input].shape,
+                },
+                numOps: 0,
+                numParams: 0,
+              });
+              this.input_shapes[input] = weights[input].shape;
+            }
+          }
         }
       }
       if (!hasInputs) {
+        iter += 1;
+        if (iter > 3) break;
         unprocessed_layers.push(layer);
         continue;
       }
@@ -324,6 +370,15 @@ class ONNX {
         ops_per_output = ks.reduce((a, b) => a*b) - 1;
         ops = output_size.reduce((a, b) => a*b) * ops_per_output;
       }
+      else if (layer.op === "GlobalAveragePool") {
+        let [batch, in_channels, ...in_dims] = this.input_shapes[layer.inputs[0]];
+        let output_size = [batch, in_channels];
+        for (let i in in_dims) output_size.push(1);
+        this.input_shapes[layer.outputs[0]] = output_size;
+        let ops_per_output;
+        ops_per_output = in_dims.reduce((a, b) => a*b) - 1;
+        ops = output_size.reduce((a, b) => a*b) * ops_per_output;
+      }
       else if (layer.op === "Linear") {
         let [batch, in_channels] = this.input_shapes[layer.inputs[0]];
         let out_features = layer.params.out_features;
@@ -366,12 +421,19 @@ class ONNX {
         this.input_shapes[layer.outputs[0]] = input;
         ops = input.reduce((a, b) => a*b);
       }
+      else if (layer.op === "LeakyRelu" || layer.op === "ImageScaler") {
+        let input = this.input_shapes[layer.inputs[0]];
+        this.input_shapes[layer.outputs[0]] = input;
+        ops = input.reduce((a, b) => a*b) * 2;
+      }
       else if (layer.op === "Reshape") {
         let input = this.input_shapes[layer.inputs[0]];
         let shape = new Array(...layer.params.shape);
         for (let i in shape) if (shape[i] === 0) shape[i] = input[i];
         let dataProd = input.reduce((a, b) => a*b);
         let shapeProd = shape.reduce((a, b) => a*b);
+        if (dataProd !== shapeProd)
+          throw new Error("Reshape doesn't match");
         for (let i in shape)
           if (shape[i] === -1)
             shape[i] = (dataProd / (-1 * shapeProd));
@@ -412,7 +474,7 @@ class ONNX {
         this.input_shapes[layer.outputs[0]] = input;
         ops = (input.slice(axis).reduce((a, b) => (a * b)) * 3);
       }
-      else if (layer.op === "Sum") {
+      else if (layer.op === "Sum" || layer.op === "Add" || layer.op === "Mul") {
         let inputs = [];
         for (let input of layer.inputs)
           inputs.push(this.input_shapes[input]);
@@ -432,19 +494,34 @@ class ONNX {
         this.input_shapes[layer.outputs[0]] = output_size;
         ops = output_size.reduce((a, b) => a*b) * inputs.length;
       }
+      else if (layer.op === "Unsqueeze") {
+        let input = this.input_shapes[layer.inputs[0]];
+        let axes = layer.params.axes;
+        let maxLen = Math.max(...axes) + 1;
+        if (input.length > maxLen) maxLen = input.length;
+        let output_size = Array(maxLen);
+        output_size.fill(1);
+        let j = 0;
+        for (let i = 0; i < maxLen; i++) {
+          if (axes.indexOf(i) === -1) {
+            output_size[i] = input[j];
+            j += 1;
+          }
+        }
+        this.input_shapes[layer.outputs[0]] = output_size;
+      } 
       else if (layer.op === "Output"){
-
       }
       else {
-        throw layer.op + " Not valid";
+        console.log("Not implemented for " + layer.op);
+        throw new Error(layer.op + " Not valid");
       }
+
       layer['numOps'] = ops;
       layer['numParams'] = params;
     }
     this.processing = false;
   }
-
-
 }
 
 export default ONNX;

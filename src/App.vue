@@ -41,14 +41,18 @@
               <!-- <p class="panel-heading has-background-white-ter">Layer Info</p> -->
               <div v-for="(layer, index) in nodeInfo" class="card" :key="index">
                 <div class="card-content">
-                  <p class="is-3 title">
+                  <p class="is-5 title">
                     {{ layer.name }}
                   </p>
-                  <div v-for="(k, v) in layer.params" :key="v" class="level is-marginless subtitle"> 
-                    <p class="level-left">{{v}}</p>
-                    <p class="level-right">{{k}}</p>
+                  <div v-for="(k, v) in layer.params" :key="v" class="level is-marginless is-mobile subtitle"> 
+                    <p class="level-left is-6">{{v}}</p>
+                    <p class="level-right is-6">{{k}}</p>
                   </div>
                 </div>
+                <footer class="card-footer">
+                  <p href="#" class="card-footer-item" style="color: #2980b9">{{ layer.numOps }}</p>
+                  <p href="#" class="card-footer-item" style="color: #27ae60">{{ layer.numParams }}</p>
+                </footer>
               </div>
               <!--
               <div class="card">
@@ -97,9 +101,7 @@
         </div>
         <div class="tile is-vertical is-auto">
           <div class="tile is-parent has-background-white-ter">
-            <div class="tile is-child has-background-white-bis">
               <model-graph/>
-            </div>
           </div>
         </div>
       </div>
