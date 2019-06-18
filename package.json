@@ -1,0 +1,82 @@
+{
+  "name": "nn-lab",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint"
+  },
+  "dependencies": {
+    "@babel/core": "^7.0.0-beta.47",
+    "@fortawesome/fontawesome-svg-core": "^1.2.4",
+    "@fortawesome/free-solid-svg-icons": "^5.3.1",
+    "@fortawesome/vue-fontawesome": "^0.1.1",
+    "apexcharts": "^1.5.6",
+    "blueimp-canvas-to-blob": "^3.14.0",
+    "britecharts": "^2.9.7",
+    "bulma": "^0.7.1",
+    "cytoscape-dagre": "^2.2.2",
+    "d3": "^5.7.0",
+    "d3-save-svg": "0.0.2",
+    "dagre-d3": "^0.6.1",
+    "file-saver": "^2.0.0",
+    "frappe-charts": "^1.1.0",
+    "int64-buffer": "^0.99.1007",
+    "jquery": "^3.3.1",
+    "json-stringify-pretty-compact": "^1.2.0",
+    "nuxt-dropzone": "^0.2.7",
+    "protobufjs": "^6.8.8",
+    "rete": "^1.0.0-alpha.11",
+    "rete-connection-plugin": "^0.2.1",
+    "rete-context-menu-plugin": "^0.1.4",
+    "rete-vue-render-plugin": "^0.2.4",
+    "save-svg-as-png": "^1.4.6",
+    "simg": "^1.1.1",
+    "snapsvg": "^0.5.1",
+    "vue": "^2.5.17",
+    "vue-apexcharts": "^1.2.1",
+    "vue-codemirror": "^4.0.5",
+    "vue-cytoscape": "^0.1.2",
+    "vue-flowy": "^0.1.5",
+    "vue-router": "^3.0.1",
+    "vue2-frappe": "^1.0.23",
+    "vuex": "^3.0.1"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "^3.0.3",
+    "@vue/cli-plugin-eslint": "^3.0.3",
+    "@vue/cli-service": "^3.0.3",
+    "@vue/eslint-config-airbnb": "^3.0.4",
+    "node-sass": "^4.9.0",
+    "sass-loader": "^7.0.1",
+    "vue-template-compiler": "^2.5.17"
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "node": true
+    },
+    "extends": [
+      "plugin:vue/essential"
+    ],
+    "parserOptions": {
+      "parser": "babel-eslint"
+    }
+  },
+  "postcss": {
+    "plugins": {
+      "autoprefixer": {}
+    }
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not ie <= 8"
+  ],
+  "paths": {
+    "frappe-charts": [
+      "node_modules/frappe-charts/dist/frappe-charts.esm.js"
+    ]
+  }
+}
