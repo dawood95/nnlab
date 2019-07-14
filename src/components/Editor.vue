@@ -37,18 +37,914 @@ import 'codemirror/mode/javascript/javascript.js';
 import { mapGetters } from 'vuex';
 const protobuf = require('protobufjs');
 
-const initialCode = `\
-{
-  "layers" : [
-    {
-      "optype": "Input",
-      "output": "input_0",
-      "params": {
-        "size": [1, 3, 224, 224]
-      }
-    }
-  ]
-}`;
+const initialCode = `[
+  {
+    "op": "Input",
+    "params": {
+      "size": [1, 3, 224, 224]
+    },
+    "outputs": ["data"]
+  },
+  {
+    "op": "Conv",
+    "inputs": ["data"],
+    "params": {
+      "out_channels": 64,
+      "kernel_size": [7, 7],
+      "stride": [2, 2],
+      "padding": [6, 6],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_conv0_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_conv0_fwd"
+    ],
+    "params": {
+      "num_features": 64,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_batchnorm0_fwd"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_batchnorm0_fwd"
+    ],
+    "outputs": [
+      "resnetv15_relu0_fwd"
+    ]
+  },
+  {
+    "op": "MaxPool",
+    "inputs": [
+      "resnetv15_relu0_fwd"
+    ],
+    "params": {
+      "kernel_size": [3, 3],
+      "stride": [2, 2],
+      "padding": [2, 2]
+    },
+    "outputs": [
+      "resnetv15_pool0_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_pool0_fwd"
+    ],
+    "params": {
+      "out_channels": 64,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage1_conv0_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage1_conv0_fwd"
+    ],
+    "params": {
+      "num_features": 64,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage1_batchnorm0_fwd"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage1_batchnorm0_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage1_relu0_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage1_relu0_fwd"
+    ],
+    "params": {
+      "out_channels": 64,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage1_conv1_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage1_conv1_fwd"
+    ],
+    "params": {
+      "num_features": 64,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage1_batchnorm1_fwd"
+    ]
+  },
+  {
+    "op": "Add",
+    "inputs": [
+      "resnetv15_pool0_fwd",
+      "resnetv15_stage1_batchnorm1_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage1__plus0"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage1__plus0"
+    ],
+    "outputs": [
+      "resnetv15_stage1_activation0"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage1_activation0"
+    ],
+    "params": {
+      "out_channels": 64,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage1_conv2_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage1_conv2_fwd"
+    ],
+    "params": {
+      "num_features": 64,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage1_batchnorm2_fwd"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage1_batchnorm2_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage1_relu1_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage1_relu1_fwd"
+    ],
+    "params": {
+      "out_channels": 64,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage1_conv3_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage1_conv3_fwd"
+    ],
+    "params": {
+      "num_features": 64,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage1_batchnorm3_fwd"
+    ]
+  },
+  {
+    "op": "Add",
+    "inputs": [
+      "resnetv15_stage1_activation0",
+      "resnetv15_stage1_batchnorm3_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage1__plus1"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage1__plus1"
+    ],
+    "outputs": [
+      "resnetv15_stage1_activation1"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage1_activation1"
+    ],
+    "params": {
+      "out_channels": 128,
+      "kernel_size": [1, 1],
+      "stride": [2, 2],
+      "padding": [0, 0],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage2_conv2_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage2_conv2_fwd"
+    ],
+    "params": {
+      "num_features": 128,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage2_batchnorm2_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage1_activation1"
+    ],
+    "params": {
+      "out_channels": 128,
+      "kernel_size": [3, 3],
+      "stride": [2, 2],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage2_conv0_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage2_conv0_fwd"
+    ],
+    "params": {
+      "num_features": 128,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage2_batchnorm0_fwd"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage2_batchnorm0_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage2_relu0_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage2_relu0_fwd"
+    ],
+    "params": {
+      "out_channels": 128,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage2_conv1_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage2_conv1_fwd"
+    ],
+    "params": {
+      "num_features": 128,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage2_batchnorm1_fwd"
+    ]
+  },
+  {
+    "op": "Add",
+    "inputs": [
+      "resnetv15_stage2_batchnorm2_fwd",
+      "resnetv15_stage2_batchnorm1_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage2__plus0"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage2__plus0"
+    ],
+    "outputs": [
+      "resnetv15_stage2_activation0"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage2_activation0"
+    ],
+    "params": {
+      "out_channels": 128,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage2_conv3_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage2_conv3_fwd"
+    ],
+    "params": {
+      "num_features": 128,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage2_batchnorm3_fwd"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage2_batchnorm3_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage2_relu1_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage2_relu1_fwd"
+    ],
+    "params": {
+      "out_channels": 128,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage2_conv4_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage2_conv4_fwd"
+    ],
+    "params": {
+      "num_features": 128,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage2_batchnorm4_fwd"
+    ]
+  },
+  {
+    "op": "Add",
+    "inputs": [
+      "resnetv15_stage2_activation0",
+      "resnetv15_stage2_batchnorm4_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage2__plus1"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage2__plus1"
+    ],
+    "outputs": [
+      "resnetv15_stage2_activation1"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage2_activation1"
+    ],
+    "params": {
+      "out_channels": 256,
+      "kernel_size": [1, 1],
+      "stride": [2, 2],
+      "padding": [0, 0],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage3_conv2_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage3_conv2_fwd"
+    ],
+    "params": {
+      "num_features": 256,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage3_batchnorm2_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage2_activation1"
+    ],
+    "params": {
+      "out_channels": 256,
+      "kernel_size": [3, 3],
+      "stride": [2, 2],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage3_conv0_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage3_conv0_fwd"
+    ],
+    "params": {
+      "num_features": 256,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage3_batchnorm0_fwd"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage3_batchnorm0_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage3_relu0_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage3_relu0_fwd"
+    ],
+    "params": {
+      "out_channels": 256,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage3_conv1_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage3_conv1_fwd"
+    ],
+    "params": {
+      "num_features": 256,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage3_batchnorm1_fwd"
+    ]
+  },
+  {
+    "op": "Add",
+    "inputs": [
+      "resnetv15_stage3_batchnorm2_fwd",
+      "resnetv15_stage3_batchnorm1_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage3__plus0"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage3__plus0"
+    ],
+    "outputs": [
+      "resnetv15_stage3_activation0"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage3_activation0"
+    ],
+    "params": {
+      "out_channels": 256,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage3_conv3_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage3_conv3_fwd"
+    ],
+    "params": {
+      "num_features": 256,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage3_batchnorm3_fwd"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage3_batchnorm3_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage3_relu1_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage3_relu1_fwd"
+    ],
+    "params": {
+      "out_channels": 256,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage3_conv4_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage3_conv4_fwd"
+    ],
+    "params": {
+      "num_features": 256,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage3_batchnorm4_fwd"
+    ]
+  },
+  {
+    "op": "Add",
+    "inputs": [
+      "resnetv15_stage3_activation0",
+      "resnetv15_stage3_batchnorm4_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage3__plus1"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage3__plus1"
+    ],
+    "outputs": [
+      "resnetv15_stage3_activation1"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage3_activation1"
+    ],
+    "params": {
+      "out_channels": 512,
+      "kernel_size": [1, 1],
+      "stride": [2, 2],
+      "padding": [0, 0],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage4_conv2_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage4_conv2_fwd"
+    ],
+    "params": {
+      "num_features": 512,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage4_batchnorm2_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage3_activation1"
+    ],
+    "params": {
+      "out_channels": 512,
+      "kernel_size": [3, 3],
+      "stride": [2, 2],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage4_conv0_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage4_conv0_fwd"
+    ],
+    "params": {
+      "num_features": 512,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage4_batchnorm0_fwd"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage4_batchnorm0_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage4_relu0_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage4_relu0_fwd"
+    ],
+    "params": {
+      "out_channels": 512,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage4_conv1_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage4_conv1_fwd"
+    ],
+    "params": {
+      "num_features": 512,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage4_batchnorm1_fwd"
+    ]
+  },
+  {
+    "op": "Add",
+    "inputs": [
+      "resnetv15_stage4_batchnorm2_fwd",
+      "resnetv15_stage4_batchnorm1_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage4__plus0"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage4__plus0"
+    ],
+    "outputs": [
+      "resnetv15_stage4_activation0"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage4_activation0"
+    ],
+    "params": {
+      "out_channels": 512,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage4_conv3_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage4_conv3_fwd"
+    ],
+    "params": {
+      "num_features": 512,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage4_batchnorm3_fwd"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage4_batchnorm3_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage4_relu1_fwd"
+    ]
+  },
+  {
+    "op": "Conv",
+    "inputs": [
+      "resnetv15_stage4_relu1_fwd"
+    ],
+    "params": {
+      "out_channels": 512,
+      "kernel_size": [3, 3],
+      "stride": [1, 1],
+      "padding": [2, 2],
+      "dilation": [1, 1],
+      "groups": 1,
+      "bias": false
+    },
+    "outputs": [
+      "resnetv15_stage4_conv4_fwd"
+    ]
+  },
+  {
+    "op": "BatchNormalization",
+    "inputs": [
+      "resnetv15_stage4_conv4_fwd"
+    ],
+    "params": {
+      "num_features": 512,
+      "spatial": false
+    },
+    "outputs": [
+      "resnetv15_stage4_batchnorm4_fwd"
+    ]
+  },
+  {
+    "op": "Add",
+    "inputs": [
+      "resnetv15_stage4_activation0",
+      "resnetv15_stage4_batchnorm4_fwd"
+    ],
+    "outputs": [
+      "resnetv15_stage4__plus1"
+    ]
+  },
+  {
+    "op": "Relu",
+    "inputs": [
+      "resnetv15_stage4__plus1"
+    ],
+    "outputs": [
+      "resnetv15_stage4_activation1"
+    ]
+  },
+  {
+    "op": "GlobalAveragePool",
+    "inputs": [
+      "resnetv15_stage4_activation1"
+    ],
+    "outputs": [
+      "resnetv15_pool1_fwd"
+    ]
+  },
+  {
+    "op": "Flatten",
+    "inputs": [
+      "resnetv15_pool1_fwd"
+    ],
+    "params": {"axis": 1},
+    "outputs": ["flatten_170"]
+  },
+  {
+    "op": "Linear",
+    "inputs": ["flatten_170"],
+    "params": {
+      "out_features": 1000,
+      "bias": true
+    },
+    "outputs": [
+      "resnetv15_dense0_fwd"
+    ]
+  },
+  {
+    "op": "Output",
+    "inputs": [
+      "resnetv15_dense0_fwd"
+    ]
+  }
+]`;
 
 export default {
   components: {
@@ -57,7 +953,7 @@ export default {
   data () {
     return {
       //code: initialCode,
-      modifiedCode: '[]',
+      modifiedCode: initialCode,
       cmOptions: {
         // codemirror options
         tabSize: 4,
@@ -73,6 +969,7 @@ export default {
     }
   },
   mounted () {
+    this.$store.commit('setFileName', 'resnet18.onnx');
     this.process();
   },
   computed: {
@@ -186,7 +1083,7 @@ export default {
 		//padding-bottom: 30px;
 		//margin-bottom: -32px;
 		display: inline-block;
-		// Hack to make IE7 behave 
+		// Hack to make IE7 behave
 		*zoom:1;
 		*display:inline;
 	}

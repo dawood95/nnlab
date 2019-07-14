@@ -173,6 +173,13 @@ function protoGenNode(nodeProto, inputs, input_names) {
     node['params'] = { axes };
     node['inputs'] = input_names;
   }
+  else if (opType === "Flatten") {
+    let axis = 1;
+    for (let x of nodeProto.attribute)
+      if (x.name === "axis") axes = x.i;
+    node['params'] = { axis };
+    node['inputs'] = input_names;
+  }
   else {
     console.log("Not implemented for " + opType);
   }
@@ -232,27 +239,32 @@ class ONNX {
     }
 
     for (let node of model.graph.node) {
-      let local_inputs = {};
+      let local_names = [];
+      let local_values = [];
       for (let input of node.input) {
         if (!weight_names.includes(input)) {
-          local_inputs[input] = inputs[input];
+          local_names.push(input);
+          local_values.push(inputs[input]);
         }
         else {
-          local_inputs[input] = weights[input].shape;
+          local_names.push(input);
+          local_values.push(weights[input].shape);
           if (node.opType === 'Reshape') {
             let raw = weights[input].raw;
             let val = [];
             for (let j = 0; j < raw.length; j = j + 8) {
               val.push((new Int64LE(raw.slice(j, j + 8))).toNumber());
             }
-            local_inputs[input] = val;
+            local_names.push(input);
+            local_values.push(val);
           }
         }
       }
+
       this.layers.push(protoGenNode(
         node,
-        Object.values(local_inputs),
-        Object.keys(local_inputs)
+        local_values,
+        local_names
       ));
     }
 
@@ -279,7 +291,7 @@ class ONNX {
 
     let unprocessed_layers = [];
     for (let layer of this.layers) unprocessed_layers.push(layer);
-  
+
     let iter = 0;
     while (unprocessed_layers.length > 0) {
       let layer = unprocessed_layers.shift();
@@ -509,7 +521,24 @@ class ONNX {
           }
         }
         this.input_shapes[layer.outputs[0]] = output_size;
-      } 
+      }
+      else if (layer.op === "Flatten") {
+        let input = this.input_shapes[layer.inputs[0]];
+        let axis = layer.params.axis;
+        let output_size = Array(2);
+
+        output_size[0] = 1;
+        for (let i = 0; i < axis; i++) {
+          output_size[0] *= input[i]
+        }
+
+        output_size[1] = 1;
+        for (let i = axis; i < input.length; i++) {
+          output_size[1] *= input[i]
+        }
+
+        this.input_shapes[layer.outputs[0]] = output_size
+      }
       else if (layer.op === "Output"){
       }
       else {
